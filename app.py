@@ -1,47 +1,90 @@
-from flask import Flask, jsonify, request, render_template, redirect, url_for
-from prediction_model import PredictionModel
+import streamlit as st
+import joblib
 import pandas as pd
-from random import randrange
-from forms import OriginalTextForm
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import PassiveAggressiveClassifier
 
+# ------------------------------
+# PAGE CONFIG
+# ------------------------------
+st.set_page_config(page_title="Fake News Detector by Jaden", page_icon="🧠", layout="centered")
 
-app = Flask(__name__)
+# ------------------------------
+# SIDEBAR
+# ------------------------------
+st.sidebar.title("📝 How to Use")
+st.sidebar.write("""
+1. Enter a news headline or paragraph.
+2. Click 🔍 Analyze to predict if it's Real or Fake.
+3. Results appear instantly below!
+""")
+st.sidebar.markdown("---")
+# Optional logo
+# st.sidebar.image("logo.png", use_column_width=True)
 
-app.config['SECRET_KEY'] = '4c99e0361905b9f941f17729187afdb9'
+# ------------------------------
+# PAGE TITLE
+# ------------------------------
+st.title("🧠 Fake News Detector")
+st.markdown("### Predict whether a news article is **Real** or **Fake** using a trained ML model.")
+st.write("Model trained on the [Kaggle Fake News Dataset](https://www.kaggle.com/c/fake-news).")
 
+# ------------------------------
+# LOAD MODEL AND VECTORIZER
+# ------------------------------
+@st.cache_resource
+def load_model():
+    try:
+        model = joblib.load("model.pkl")
+        vectorizer = joblib.load("vectorizer.pkl")
+        return model, vectorizer
+    except:
+        st.warning("⚠️ Model files not found. Using a demo model with balanced classes...")
+        # Demo dataset with BOTH classes
+        demo_texts = [
+            "Government announces new economic reforms.",     # Real
+            "Stock markets hit record high this week.",       # Real
+            "Scientists discover humans can photosynthesize.",# Fake
+            "Aliens found living inside volcano on Mars."     # Fake
+        ]
+        demo_labels = [0, 0, 1, 1]  # 0 = Real, 1 = Fake
 
-@app.route("/", methods=['POST', 'GET'])
-def home():
-    form = OriginalTextForm()
+        vectorizer = TfidfVectorizer(stop_words='english', max_df=0.7)
+        X = vectorizer.fit_transform(demo_texts)
 
-    if form.generate.data:
-        data = pd.read_csv("random_dataset.csv")
-        index = randrange(0, len(data)-1, 1)
-        original_text = data.loc[index].text
-        form.original_text.data = str(original_text)
-        return render_template('home.html', form=form, output=False)
+        model = PassiveAggressiveClassifier(max_iter=50)
+        model.fit(X, demo_labels)
 
-    elif form.predict.data:
-        if len(str(form.original_text.data)) > 10:
-            model = PredictionModel(form.original_text.data)
-            return render_template('home.html', form=form, output=model.predict())
+        return model, vectorizer
 
-    return render_template('home.html', form=form, output=False)
+model, vectorizer = load_model()
 
+# ------------------------------
+# INPUT & RESULT COLUMNS
+# ------------------------------
+col1, col2 = st.columns([3, 2])
 
-@app.route('/predict/<original_text>', methods=['POST', 'GET'])
-def predict(original_text):
-    #text = 'CAIRO (Reuters) - Three police officers were killed and eight others injured in a shoot-out during a raid on a suspected militant hideout in Giza, southwest of the Egyptian capital, two security sources said on Friday. The sources said authorities were following a lead to an apartment thought to house eight suspected members of Hasm, a group which has claimed several attacks around the capital targeting judges and policemen since last year. The suspected militants fled after the exchange of fire there, the sources said. Egypt accuses Hasm of being a militant wing of the Muslim Brotherhood, an Islamist group it outlawed in 2013. The Muslim Brotherhood denies this. An Islamist insurgency in the Sinai peninsula has grown since the military overthrew President Mohamed Mursi of the Muslim Brotherhood in mid-2013 following mass protests against his rule. The militant group staging the insurgency pledged allegiance to Islamic State in 2014. It is blamed for the killing of hundreds of soldiers and policemen and has started to target other areas, including Egypt s Christian Copts. ' 
-    model = PredictionModel(original_text)
-    return jsonify(model.predict())
+with col1:
+    user_input = st.text_area("📰 Enter news text here:", placeholder="Type or paste a news article...")
 
+with col2:
+    st.markdown("### Prediction")
+    if st.button("🔍 Analyze"):
+        if user_input.strip() == "":
+            st.warning("Please enter some text to analyze.")
+        else:
+            input_vector = vectorizer.transform([user_input])
+            prediction = model.predict(input_vector)[0]
+            if prediction == 0:
+                st.markdown(f"<h2 style='color:green'>🟢 REAL NEWS</h2>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<h2 style='color:red'>🔴 FAKE NEWS</h2>", unsafe_allow_html=True)
 
-@app.route('/random', methods=['GET'])
-def random():
-    data = pd.read_csv("random_dataset.csv")
-    index = randrange(0, len(data)-1, 1)
-    return jsonify({'title': data.loc[index].title, 'text': data.loc[index].text, 'label': str(data.loc[index].label)})
-
-
-if __name__ == '__main__':
-    app.run()
+# ------------------------------
+# FOOTER
+# ------------------------------
+st.markdown("---")
+st.markdown(
+    "<p style='text-align:center'>🧩 Project by <a href='https://github.com/Gleek231997'>Glory Ekbote</a> | Built with Streamlit & Scikit-learn</p>",
+    unsafe_allow_html=True
+)
