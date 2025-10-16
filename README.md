@@ -30,14 +30,15 @@ The app is built with **Streamlit** for an interactive web interface.
 ```bash
 git clone git@github.com:Gleek231997/Fake-News-Detector-App.git
 cd Fake-News-Detector-App
-
+```
 2. Install dependencies:
 ```bash
 pip install streamlit scikit-learn pandas numpy joblib
-
+```
 3. Run the app:
 ```bash
 streamlit run app.py
+```
 
 ## 📁 Project Structure
 
@@ -49,4 +50,4 @@ Fake-News-Detector-App/
 ├── vectorizer.pkl      # TF-IDF vectorizer (optional)
 ├── README.md           # Project documentation
 └── requirements.txt    # Python dependencies
-
+```
